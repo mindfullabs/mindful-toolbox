@@ -41,14 +41,16 @@ function drawGrapher() {
 		var now = _.time()
 		svg.empty()
 
-		var leftTime = now - 1000 * 3
+		var timeSpan = 4000
+		var leftTime = now - (2/3)*timeSpan
+		var rightTime = now + (1/3)*timeSpan
 
 		var rightP = [now, 0]
-		var rightPos = [size[0], size[1] / 2]
+		var rightPos = [_.lerp(leftTime, 0, rightTime, size[0], rightP[0]), size[1] / 2]
 		for (var i = model.points.length - 1; i >= 0; i--) {
 			var p = model.points[i]
 			var pos = [
-				_.lerp(leftTime, 0, now, size[0], p[0]),
+				_.lerp(leftTime, 0, rightTime, size[0], p[0]),
 				rightPos[1] + rightP[1]
 			]
 

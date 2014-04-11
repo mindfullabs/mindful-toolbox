@@ -42,7 +42,10 @@ function grabMouseRelative(d, cb, onUp) {
     grabMouse(d, function (pos) {
         if (lastPos) cb(sub(pos, lastPos))
         lastPos = pos
-    }, onUp)
+    }, function () {
+        lastPos = null
+        if (onUp) onUp()
+    })
 }
 
 function getStartOfDay(time) {
