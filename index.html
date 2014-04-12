@@ -175,6 +175,8 @@ function drawHeartTapper() {
 	var svg = $('<svg style="position:absolute;left:0px;top:0px;width:' + size[0] + 'px;height:' + size[1] + 'px"/>')
 	d.append(svg)
 
+	d.append($('<div style="position:absolute;left:' + (size[0]/2) + 'px;top:0px"/>').text('tap each beat'))
+
 	var bpm = $('<div style="position:absolute;left:' + (size[0]*3/4) + 'px;top:' + (size[1]/6) + 'px"/>')
 	d.append(bpm)
 
