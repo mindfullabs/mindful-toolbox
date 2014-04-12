@@ -300,6 +300,9 @@ jQuery.fn.extend({
             if (yes) $(this).removeAttr('disabled')
             else $(this).attr('disabled', 'disabled')
         })
+    },
+    inDom : function () {
+        return $.contains(document.documentElement, this[0])
     }
 })
 

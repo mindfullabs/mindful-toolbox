@@ -19,23 +19,92 @@ body {
 <body>
 <script>
 
+function getWindowSize() {
+	return [window.innerWidth, window.innerHeight]
+}
+
 function drawSVG(type, attributes, style) {
     return $(document.createElementNS('http://www.w3.org/2000/svg', type)).attr(attributes).myCss(style)
 }
 
-function drawGrapher() {
-	var size = [window.innerWidth, window.innerHeight]
+function drawButton(label, cb) {
+	var size = getWindowSize()[0] / 4
+	var d = $('<button style="width:' + size + 'px;height:' + size + 'px"/>').text(label)
+	d.click(cb)
+	return d
+}
+
+function drawTimer(time, cb) {
+	var beginTime = _.time()
+	var endTime = beginTime + time
+	var d = $('<div/>')
+	function update(forceTimer) {
+		var timeLeft = _.lerp(beginTime, time, endTime, 0, _.time())
+		var secs = Math.round(timeLeft/1000)
+		var mins = Math.floor(secs / 60)
+		secs = secs % 60
+		d.text(mins + ':' + secs)
+		if (timeLeft <= 0) {
+			if (cb) cb()
+		} else if (forceTimer || d.inDom()) {
+			setTimeout(update, 500)
+		}
+	}
+	update(true)
+	return d
+}
+
+function drawGraph(points, min, max) {
+	if (!min && !max) {
+		var tmp = [
+			_.map(points, function (p) { return p[0] }),
+			_.map(points, function (p) { return p[1] })
+		]
+		var min = [_.min(tmp[0]), _.min(tmp[1])]
+		var max = [_.max(tmp[0]), _.max(tmp[1])]
+	}
+
+	var size = getWindowSize()
 	var d = $('<div style="position:absolute;left:0px;top:0px;width:' + size[0] + 'px;height:' + size[1] + 'px;background:lightgreen"/>')
-	var svg = $('<svg style="width:100%;height:100%"/>')
+	var svg = $('<svg style="position:absolute;left:0px;top:0px;width:' + size[0] + 'px;height:' + size[1] + 'px"/>')
 	d.append(svg)
+
+	var path = ''
+	_.each(points, function (p, i) {
+		path += (i == 0 ? 'M' : ' L') +
+			_.lerp(min[0], 0, max[0], size[0], p[0]) + ' ' +
+			_.lerp(min[1], 0, max[1], size[1] / 2, p[1])
+	})
+
+	svg.append(drawSVG('path', { d : path }, 'fill:none;stroke-width:1px;stroke:green'))
+
+	d.append(drawButton('ok', function () {
+		$('body').empty().append(drawMain())
+	}).myCss('position:absolute;left:0px;top:' + size[1]/2 + 'px'))
+
+	return d
+}
+
+function drawGrapher(relative, labelTop, labelBottom) {
+	var size = getWindowSize()
+	var d = $('<div style="position:absolute;left:0px;top:0px;width:' + size[0] + 'px;height:' + size[1] + 'px;background:lightgreen"/>')
+	var svg = $('<svg style="position:absolute;left:0px;top:0px;width:' + size[0] + 'px;height:' + size[1] + 'px"/>')
+	d.append(svg)
+
+	d.append($('<div style="position:absolute;left:' + (size[0]/2) + 'px;top:0px"/>').text(labelTop))
+	d.append($('<div style="position:absolute;left:' + (size[0]/2) + 'px;top:' + (size[1]-20) + 'px"/>').text(labelBottom))
+
+	d.append(drawTimer(30 * 1000, function () {
+		$('body').empty().append(drawGraph(model.points))
+	}).myCss('position:absolute:left:100px;top:100px'))
 
 	var model = {
 		points : []
 	}
-	model.points.push([_.time(), 0])
+	model.points.push([_.time(), size[1]/2])
 
 	var updateTimer = 0
-	function update() {
+	function update(forceTimer) {
 		clearTimeout(updateTimer)
 
 		var now = _.time()
@@ -45,56 +114,153 @@ function drawGrapher() {
 		var leftTime = now - (2/3)*timeSpan
 		var rightTime = now + (1/3)*timeSpan
 
-		var rightP = [now, 0]
-		var rightPos = [_.lerp(leftTime, 0, rightTime, size[0], rightP[0]), size[1] / 2]
-		for (var i = model.points.length - 1; i >= 0; i--) {
-			var p = model.points[i]
-			var pos = [
+		var rightP = [now, model.points.slice(-1)[0][1]]
+		var top = relative ? rightP[1] - size[1]/2 : 0
+		var bottom = relative ? rightP[1] + size[1]/2 : size[1]
+
+		function getPos(p) {
+			return [
 				_.lerp(leftTime, 0, rightTime, size[0], p[0]),
-				rightPos[1] + rightP[1]
+				_.lerp(top, 0, bottom, size[1], p[1])
 			]
-
-			if (isNaN(pos[0]) || isNaN(pos[1]) || isNaN(rightPos[0]) || isNaN(rightPos[1])) {
-				console.log('wtf?: ' + size)
-				return
-			}
-
-			svg.append(drawSVG('line', {
-				x1 : pos[0],
-				y1 : pos[1],
-				x2 : rightPos[0],
-				y2 : rightPos[1]
-			}, 'stroke-width:7px;stroke:green'))
-
-			rightP = p
-			rightPos = pos
-
-			if (rightPos[0] < 0) break
 		}
 
-		updateTimer = setTimeout(function () {
+		var rightPos = getPos(rightP)
+		var path = 'M' + rightPos[0] + ' ' + rightPos[1]
+
+		for (var i = model.points.length - 1; i >= 0; i--) {
+			var pos = getPos(model.points[i])
+			path += ' L' + pos[0] + ' ' + pos[1]
+			if (pos[0] < 0) break
+		}
+
+		svg.append(drawSVG('path', { d : path }, 'fill:none;stroke-width:7px;stroke:green'))
+
+		if (forceTimer || d.inDom()) {
+			updateTimer = setTimeout(function () {
+				var lastTwo = model.points.slice(-2)
+				if (lastTwo.length == 2 && lastTwo[0][1] == lastTwo[1][1]) {
+					lastTwo[1][0] = _.time()
+				} else {
+					model.points.push([_.time(), model.points.slice(-1)[0][1]])
+				}
+				update()
+			}, 100)
+		}
+	}
+	update(true)
+
+	var glass = $('<div style="position:absolute;left:0px;top:0px;width:' + size[0] + 'px;height:' + size[1] + 'px;"/>')
+	d.append(glass)
+
+	if (relative) {
+		grabMouseRelative(glass, function (diff) {
 			var lastP = model.points.slice(-1)[0]
-			if (model.points.length > 1 && lastP[1] == 0) {
-				lastP[0] = _.time()
-			} else {
-				model.points.push([_.time(), 0])
-			}
+			model.points.push([_.time(), lastP[1] + diff[1]])
 			update()
-		}, 100)
+		})
+	} else {
+		grabMouse(glass, function (pos) {
+			model.points.push([_.time(), pos[1]])
+			update()
+		})
+	}
+
+	return d
+}
+
+function drawHeartTapper() {
+	var size = getWindowSize()
+	var d = $('<div style="position:absolute;left:0px;top:0px;width:' + size[0] + 'px;height:' + size[1] + 'px;background:lightgreen"/>')
+	var svg = $('<svg style="position:absolute;left:0px;top:0px;width:' + size[0] + 'px;height:' + size[1] + 'px"/>')
+	d.append(svg)
+
+	var bpm = $('<div style="position:absolute;left:' + (size[0]*3/4) + 'px;top:' + (size[1]/6) + 'px"/>')
+	d.append(bpm)
+
+	var beginTime = _.time()
+	var timeSpan = 30 * 1000
+
+	var timer = null
+	d.append(timer = drawTimer(timeSpan, function () {
+		timer.remove()
+		glass.remove()
+		bpm.remove()
+		d.append(drawButton('ok', function () {
+			$('body').empty().append(drawMain())
+		}).myCss('position:absolute;left:0px;top:' + size[1]/2 + 'px'))
+	}).myCss('position:absolute:left:100px;top:100px'))
+
+	var model = {
+		taps : []
+	}
+	function getPoints() {
+		var points = []
+		for (var i = 1; i < model.taps.length; i++) {
+			var span = model.taps[i] - model.taps[i - 1]
+			points.push([
+				model.taps[i],
+				60*1000 / span
+			])
+		}
+		return points
+	}
+
+	function update() {
+		var now = _.time()
+		svg.empty()
+
+		var points = getPoints()
+		if (points.length > 0) {
+			bpm.text(points.slice(-1)[0][1].toFixed(0) + ' bpm')
+		}
+		if (points.length > 1) {
+			var path = ''
+			_.each(points, function (p, i) {
+				path += (i == 0 ? 'M' : ' L') +
+					_.lerp(beginTime, 0, beginTime + timeSpan, size[0], p[0]) + ' ' +
+					_.lerp(30, size[1]/2, 150, 0, p[1])
+			})
+
+			svg.append(drawSVG('path', { d : path }, 'fill:none;stroke-width:7px;stroke:green'))
+		}
 	}
 	update()
 
-	grabMouseRelative(d, function (diff) {
-		model.points.push([_.time(), -diff[1]])
-		update()
+	var glass = $('<div style="position:absolute;left:0px;top:0px;width:' + size[0] + 'px;height:' + size[1] + 'px;"/>')
+	d.append(glass)
+
+	var lastPos = null
+	grabMouse(glass, function (pos) {
+		if (lastPos == null) {
+			model.taps.push(_.time())
+			update()
+		}
+		lastPos = pos
+	}, function () {
+		lastPos = null
 	})
 
 	return d
 }
 
+function drawMain() {
+	var d = $('<div/>')
+	d.append(drawButton('track mood', function () {
+		$('body').empty().append(drawGrapher(true, 'feeling better', 'feeling worse'))
+	}))
+	d.append(drawButton('track breath', function () {
+		$('body').empty().append(drawGrapher(false, 'lungs full', 'lungs empty'))
+	}))
+	d.append(drawButton('heart tapper', function () {
+		$('body').empty().append(drawHeartTapper())
+	}))
+	return d
+}
+
 $(function () {
 	function update() {
-		$('body').append(drawGrapher())
+		$('body').append(drawMain())
 	}
 	update()
 	$(window).resize(update)
