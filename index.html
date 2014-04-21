@@ -85,7 +85,7 @@ function drawGraph(points, min, max) {
 	return d
 }
 
-function drawGrapher(relative, labelTop, labelBottom) {
+function drawGrapher(relative, labelTop, labelBottom, time) {
 	var size = getWindowSize()
 	var d = $('<div style="position:absolute;left:0px;top:0px;width:' + size[0] + 'px;height:' + size[1] + 'px;background:lightgreen"/>')
 	var svg = $('<svg style="position:absolute;left:0px;top:0px;width:' + size[0] + 'px;height:' + size[1] + 'px"/>')
@@ -94,7 +94,7 @@ function drawGrapher(relative, labelTop, labelBottom) {
 	d.append($('<div style="position:absolute;left:' + (size[0]/2) + 'px;top:0px"/>').text(labelTop))
 	d.append($('<div style="position:absolute;left:' + (size[0]/2) + 'px;top:' + (size[1]-20) + 'px"/>').text(labelBottom))
 
-	d.append(drawTimer(30 * 1000, function () {
+	d.append(drawTimer(time, function () {
 		$('body').empty().append(drawGraph(model.points))
 	}).myCss('position:absolute:left:100px;top:100px'))
 
@@ -249,10 +249,10 @@ function drawHeartTapper() {
 function drawMain() {
 	var d = $('<div/>')
 	d.append(drawButton('track mood', function () {
-		$('body').empty().append(drawGrapher(true, 'feeling better', 'feeling worse'))
+		$('body').empty().append(drawGrapher(true, 'feeling better', 'feeling worse', 60 * 1000))
 	}))
 	d.append(drawButton('track breath', function () {
-		$('body').empty().append(drawGrapher(false, 'lungs full', 'lungs empty'))
+		$('body').empty().append(drawGrapher(false, 'lungs full', 'lungs empty', 60 * 1000))
 	}))
 	d.append(drawButton('heart tapper', function () {
 		$('body').empty().append(drawHeartTapper())
